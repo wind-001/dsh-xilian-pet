@@ -22,6 +22,7 @@
     }
     body.dragging { cursor: grabbing; }
     #bubble {
+      position: relative;
       max-width: calc(100% - 16px);
       max-height: 88px;
       margin-bottom: 8px;
@@ -42,8 +43,9 @@
     #bubble::after {
       content: "";
       position: absolute;
-      margin-top: 6px;
-      margin-left: -7px;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
       border: 7px solid transparent;
       border-top-color: rgba(178, 132, 255, 0.55);
     }
