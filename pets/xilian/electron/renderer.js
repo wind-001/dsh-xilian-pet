@@ -20,6 +20,8 @@
   let toolArgs = ''
   let message = ''
   let todoText = ''
+  let pct = null
+  let lastUpdate = null
   let prevMode = null
   let notifyEnabled = false
 
@@ -32,14 +34,52 @@
     return 0
   }
   const textOf = (t) => {
-    if (t.mode === 'waiting') return '❗ 我需要你的决定！' + (t.message ? '（' + t.message + '）' : '')
-    if (t.mode === 'degraded') return '🤔 思考中...（可能遇到阻力）'
-    if (t.mode === 'review') return t.message || '✅ 任务完成！快来检查成果吧！'
-    if (t.mode === 'running') {
+    const lines = []
+    if (t.mode === 'waiting') {
+      lines.push('❗ 我需要你的决定！')
+      if (t.message) lines.push('原因：' + t.message)
+      lines.push('请在对话中批准或回复「确认」')
+    } else if (t.mode === 'degraded') {
+      lines.push('🤔 思考中...（可能遇到阻力）')
+      lines.push('超过 10 秒没有进度更新')
+    } else if (t.mode === 'review') {
+      lines.push('✅ 任务完成！快来检查成果吧！')
+    } else if (t.mode === 'running') {
       const phaseText = t.phase <= 0 ? '🧠 正在思考方案...' : t.phase === 1 ? '✍️ 正在编写代码 / 读取文件...' : '🔧 正在自检与格式化...'
-      return phaseText + (t.todoText ? ' ' + t.todoText : '')
+      lines.push(phaseText + '（' + (typeof t.pct === 'number' ? t.pct : '-') + '%）')
+      if (t.toolName) lines.push('🛠 ' + t.toolName + (t.toolArgs ? ' ' + t.toolArgs : ''))
+    } else {
+      lines.push('💤 等待指令...')
     }
-    return '💤 等待指令...'
+    if (t.todoText) lines.push(t.todoText)
+    return lines.join('\n')
+  }
+
+  const modeLabel = (m) => m === 'waiting' ? '等待输入' : m === 'degraded' ? '遇阻降级' : m === 'review' ? '可复核' : m === 'running' ? '运行中' : '空闲'
+  const detailEl = document.getElementById('detail')
+  const detailBody = document.getElementById('detail-body')
+  let detailTimer = null
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const showDetail = () => {
+    if (!detailEl || !detailBody) return
+    if (detailEl.classList.contains('show')) {
+      detailEl.classList.remove('show')
+      if (detailTimer) clearTimeout(detailTimer)
+      return
+    }
+    const rows = [
+      ['状态', modeLabel(mode)],
+      ['进度', pct != null ? pct + '%' : '-'],
+      ['当前工具', toolName ? (toolName + (toolArgs ? ' ' + toolArgs : '')) : '—'],
+      ['任务清单', todoText || '—'],
+      ['提示', message || '—'],
+      ['更新时间', lastUpdate || '—'],
+    ]
+    detailBody.innerHTML = rows.map(([k, v]) =>
+      '<div class="row"><span class="k">' + esc(k) + '：</span>' + esc(v) + '</div>').join('')
+    detailEl.classList.add('show')
+    if (detailTimer) clearTimeout(detailTimer)
+    detailTimer = setTimeout(() => detailEl.classList.remove('show'), 8000)
   }
 
   const paint = () => {
@@ -127,12 +167,7 @@
       switchRow(manualRow !== null ? manualRow : taskRowOf(mode, phase))
     }
     syncIgnore(e.clientX, e.clientY, true)
-    if (!wasDrag) {
-      if (mode === 'running') showBubble('🛠 正在执行: ' + (toolName || '任务') + (toolArgs ? ' ' + toolArgs : ''))
-      else if (mode === 'waiting') showBubble('❗ 需要你的决定：' + (message || '请查看对话并回复'), true)
-      else if (mode === 'review') showBubble('✅ 任务完成！' + (message || '') + '（查看对话确认成果）')
-      else if (mode === 'degraded') showBubble('🤔 长时间无进度更新，可能遇到阻力；请在对话中打断我')
-    }
+    if (!wasDrag) showDetail()
   })
   document.addEventListener('dblclick', () => window.api.exit())
   document.addEventListener('contextmenu', (e) => { e.preventDefault(); window.api.context() })
@@ -143,10 +178,12 @@
       if (t && t.mode) {
         mode = t.mode
         phase = t.phase
+        pct = typeof t.pct === 'number' ? t.pct : null
         toolName = t.toolName || ''
         toolArgs = t.toolArgs || ''
         message = t.message || ''
         todoText = t.todoText || ''
+        lastUpdate = new Date().toLocaleTimeString()
         switchRow(manualRow !== null ? manualRow : taskRowOf(mode, phase))
         const text = textOf(t)
         showBubble(text, t.mode === 'waiting')

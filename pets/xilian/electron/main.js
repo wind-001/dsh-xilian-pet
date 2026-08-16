@@ -2,19 +2,13 @@ const { app, BrowserWindow, ipcMain, screen, Menu, Notification } = require('ele
 const fs = require('fs')
 const path = require('path')
 
-function readJsonSafe(p, dflt) {
-  try { return JSON.parse(fs.readFileSync(p, 'utf8')) } catch (e) { return dflt }
-}
-
-// 资产根目录（含 web/ 与 task.json 的那一层）：
-// 优先读本目录 config.json 的 assetRoot；否则默认仓库布局（本文件上一级 = pets/xilian）
-const APP_CFG = readJsonSafe(path.join(__dirname, 'config.json'), {})
-const ASSET_DIR = APP_CFG.assetRoot || path.join(__dirname, '..')
+// 昔涟宠物资产目录（与网页插件共用的工作区目录）
+const ASSET_DIR = 'C:/Users/刘康鑫/Desktop/Test_cline_deepseekv4/pets/xilian'
 const BOUNDS_FILE = path.join(__dirname, 'bounds.json')
 const HEARTBEAT_FILE = path.join(ASSET_DIR, 'desktop_alive.json')
 const STATE_FILE = path.join(ASSET_DIR, 'state.json')
 const ICON_FILE = path.join(ASSET_DIR, 'web', 'icon.png')
-const BUBBLE_ZONE = 100
+const BUBBLE_ZONE = 190
 
 app.disableHardwareAcceleration()
 

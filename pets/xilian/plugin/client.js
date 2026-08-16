@@ -16,6 +16,7 @@ function PetView({ ctx }) {
   const [switchOn, setSwitchOn] = React.useState(false)
   const [desktopMode, setDesktopMode] = React.useState(false)
   const [webClosed, setWebClosed] = React.useState(false)
+  const [lastUpdate, setLastUpdate] = React.useState(null)
   const lastMove = React.useRef(null)
   const loadedRes = React.useRef('1x')
   const panelOpenRef = React.useRef(false)
@@ -30,6 +31,7 @@ function PetView({ ctx }) {
   const baseCellW = (sprite ? sprite.cellW / res : 103)
   const baseCellH = (sprite ? sprite.cellH / res : 124)
   const mode = (task && task.mode) || 'idle'
+  const modeLabel = (m) => m === 'waiting' ? '等待输入' : m === 'degraded' ? '遇阻降级' : m === 'review' ? '可复核' : m === 'running' ? '运行中' : '空闲'
   const taskRow = mode === 'waiting' ? 4 : mode === 'degraded' ? 8 : mode === 'review' ? 6 : mode === 'running' ? ((task && task.phase >= 2) ? 2 : 1) : null
   const activeRow = dragInfo ? (dragInfo.speed === 'run' ? 2 : 1) : (taskRow !== null ? taskRow : (celebrate ? 6 : anim))
   const frameCount = anims[activeRow] ? anims[activeRow].frames : 6
@@ -155,26 +157,26 @@ function PetView({ ctx }) {
         const prevMode = prev ? prev.mode : null
         taskRef.current = t
         setTask(t)
+        setLastUpdate(new Date().toLocaleTimeString())
         if (prevMode && prevMode !== t.mode) {
           setSwitchOn(true)
           ctx.timeout(() => setSwitchOn(false), 400)
         }
         if (t.mode === 'waiting') {
-          showBubble('❗ 我需要你的决定！' + (t.message ? '（' + t.message + '）' : ''), true)
+          showBubble(taskBubbleText(t), true)
           fireNotify('❗ 昔涟需要你的决定：' + (t.message || '请回复以继续'))
         } else if (t.mode === 'degraded') {
-          showBubble('🤔 思考中...（可能遇到阻力）')
+          showBubble(taskBubbleText(t))
           fireNotify('🤔 任务可能遇到阻力，请回来看看')
         } else if (t.mode === 'review') {
-          showBubble(t.message || '✅ 任务完成！快来检查成果吧！')
+          showBubble(taskBubbleText(t))
           fireNotify('✅ 任务完成！快来检查成果吧！')
           setCelebrate(true)
           ctx.timeout(() => setCelebrate(false), 5000)
         } else if (t.mode === 'running') {
-          const phaseText = t.phase <= 0 ? '🧠 正在思考方案...' : t.phase === 1 ? '✍️ 正在编写代码 / 读取文件...' : '🔧 正在自检与格式化...'
-          showBubble(phaseText + (t.todoText ? ' ' + t.todoText : ''))
+          showBubble(taskBubbleText(t))
         } else {
-          if (prevMode !== 'idle') showBubble('💤 等待指令...')
+          if (prevMode !== 'idle') showBubble(taskBubbleText(t))
         }
         if (prevMode === 'waiting' && t.mode !== 'waiting') setBubble(null)
       }).catch(() => {})
@@ -216,7 +218,7 @@ function PetView({ ctx }) {
     const lm = lastMove.current
     if (lm && lm.moved > 6) return
     if (mode === 'running') {
-      const info = '🛠 正在执行: ' + (task.toolName || '任务') + (task.toolArgs ? ' ' + task.toolArgs : '')
+      const info = '🛠 正在执行: ' + (task.toolName || '任务') + (task.toolArgs ? ' ' + task.toolArgs : '') + (typeof task.pct === 'number' ? '（' + task.pct + '%）' : '')
       showBubble(info)
     } else if (mode === 'waiting') {
       showBubble('❗ 需要你的决定：' + (task.message || '请查看对话并回复') + '（在对话中批准或回复「确认」即可继续）', true)
@@ -239,14 +241,25 @@ function PetView({ ctx }) {
 
   const taskBubbleText = (t) => {
     if (!t) return '🌙 暂时没有进行中的任务'
-    if (t.mode === 'waiting') return '❗ 我需要你的决定！' + (t.message ? '（' + t.message + '）' : '')
-    if (t.mode === 'degraded') return '🤔 思考中...（可能遇到阻力）'
-    if (t.mode === 'review') return t.message || '✅ 任务完成！快来检查成果吧！'
-    if (t.mode === 'running') {
+    const lines = []
+    if (t.mode === 'waiting') {
+      lines.push('❗ 我需要你的决定！')
+      if (t.message) lines.push('原因：' + t.message)
+      lines.push('请在对话中批准或回复「确认」')
+    } else if (t.mode === 'degraded') {
+      lines.push('🤔 思考中...（可能遇到阻力）')
+      lines.push('超过 10 秒没有进度更新')
+    } else if (t.mode === 'review') {
+      lines.push('✅ ' + (t.message || '任务完成！快来检查成果吧！'))
+    } else if (t.mode === 'running') {
       const phaseText = t.phase <= 0 ? '🧠 正在思考方案...' : t.phase === 1 ? '✍️ 正在编写代码 / 读取文件...' : '🔧 正在自检与格式化...'
-      return phaseText + (t.todoText ? ' ' + t.todoText : '')
+      lines.push(phaseText + '（' + (typeof t.pct === 'number' ? t.pct : '-') + '%）')
+      if (t.toolName) lines.push('🛠 ' + t.toolName + (t.toolArgs ? ' ' + t.toolArgs : ''))
+    } else {
+      lines.push('💤 等待指令...')
     }
-    return '💤 等待指令...'
+    if (t.todoText) lines.push(t.todoText)
+    return lines.join('\n')
   }
 
   const onBadgeClick = (e) => {
@@ -324,6 +337,15 @@ function PetView({ ctx }) {
         className: 'xl-pet-notify' + (notify ? ' on' : ''),
         onClick: toggleNotify,
       }, '🔔 系统提醒（最小化时通知）' + (notify ? '：开' : '：关')),
+      React.createElement('div', { className: 'xl-pet-detail' },
+        React.createElement('h4', null, '📊 任务详情'),
+        React.createElement('div', { className: 'row' }, React.createElement('span', { className: 'k' }, '状态：'), modeLabel(mode)),
+        React.createElement('div', { className: 'row' }, React.createElement('span', { className: 'k' }, '进度：'), (task && typeof task.pct === 'number') ? task.pct + '%' : '-'),
+        React.createElement('div', { className: 'row' }, React.createElement('span', { className: 'k' }, '当前工具：'), (task && task.toolName) ? (task.toolName + (task.toolArgs ? ' ' + task.toolArgs : '')) : '—'),
+        React.createElement('div', { className: 'row' }, React.createElement('span', { className: 'k' }, '任务清单：'), (task && task.todoText) || '—'),
+        React.createElement('div', { className: 'row' }, React.createElement('span', { className: 'k' }, '提示：'), (task && task.message) || '—'),
+        React.createElement('div', { className: 'row' }, React.createElement('span', { className: 'k' }, '更新时间：'), lastUpdate || '—'),
+      ),
       React.createElement('div', { className: 'xl-pet-anims' },
         anims.map((a, i) => React.createElement('button', {
           key: i,
@@ -350,7 +372,7 @@ function PetView({ ctx }) {
 return {
   inject: ['timer'],
   apply(ctx) {
-    const css = '.xl-pet-layer { position: fixed; z-index: 2147483000; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; } .xl-pet-sprite { position: absolute; left: 0; top: 0; cursor: pointer; user-select: none; -webkit-user-select: none; image-rendering: auto; } .xl-pet-sprite.dragging { cursor: grabbing; } .xl-pet-fade { animation: xlFade .35s ease; } .xl-pet-switch .xl-pet-bubble { animation: xlFade .35s ease; } @keyframes xlFade { from { opacity: .25; transform: scale(.96); } to { opacity: 1; transform: scale(1); } } .xl-pet-badge { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); background: rgba(22,18,44,0.9); color: #e8d9ff; border: 1px solid rgba(168,120,255,0.55); border-radius: 11px; padding: 1px 11px; font-size: 12px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.4); } .xl-pet-badge:hover { background: rgba(60,44,110,0.95); } .xl-pet-panel { position: absolute; left: 0; bottom: 100%; margin-bottom: 12px; width: 260px; background: rgba(22,20,40,0.97); color: #e8e2ff; border: 1px solid rgba(168,120,255,0.5); border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.55); backdrop-filter: blur(8px); } .xl-pet-panel h3 { margin: 0 0 4px; font-size: 15px; color: #dcc6ff; } .xl-pet-panel p { margin: 0 0 10px; font-size: 12px; line-height: 1.55; color: #b9b0d6; } .xl-pet-anims { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; } .xl-pet-anim-btn { border: 1px solid rgba(168,120,255,0.45); background: rgba(80,60,150,0.35); color: #e8e2ff; border-radius: 8px; padding: 3px 8px; font-size: 12px; cursor: pointer; } .xl-pet-anim-btn:hover { background: rgba(100,75,180,0.45); } .xl-pet-anim-btn.active { background: rgba(150,100,255,0.55); border-color: #a678ff; color: #fff; } .xl-pet-size { margin-bottom: 10px; font-size: 12px; color: #c9c0e8; } .xl-pet-size span { display: block; margin-bottom: 4px; } .xl-pet-size input { width: 100%; accent-color: #a678ff; } .xl-pet-notify { width: 100%; border: 1px solid rgba(168,120,255,0.4); background: rgba(60,50,110,0.35); color: #c9c0e8; border-radius: 8px; padding: 5px 0; font-size: 12px; cursor: pointer; margin-bottom: 10px; } .xl-pet-notify.on { background: rgba(150,100,255,0.45); border-color: #a678ff; color: #fff; } .xl-pet-hide { width: 100%; border: 1px solid rgba(255,120,140,0.45); background: rgba(120,40,60,0.35); color: #ffd7de; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; margin-bottom: 6px; } .xl-pet-close-web { width: 100%; border: 1px solid rgba(120,170,255,0.45); background: rgba(40,70,140,0.35); color: #d8e6ff; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; margin-bottom: 6px; } .xl-pet-close { width: 100%; border: 1px solid rgba(168,120,255,0.35); background: rgba(60,50,110,0.35); color: #c9c0e8; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; } .xl-pet-chip { position: absolute; background: rgba(22,18,44,0.9); color: #e8d9ff; border: 1px solid rgba(168,120,255,0.55); border-radius: 11px; padding: 2px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.4); max-width: 420px; overflow: hidden; text-overflow: ellipsis; } .xl-pet-bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 34px; max-width: calc(100% + 140px); width: max-content; background: rgba(30,26,54,0.97); color: #f0e9ff; border: 1px solid rgba(178,132,255,0.55); border-radius: 14px; padding: 9px 18px; font-size: 12.5px; line-height: 1.55; text-align: center; white-space: normal; word-break: break-word; letter-spacing: 0.4px; box-shadow: 0 6px 24px rgba(0,0,0,0.5); } .xl-pet-bubble.xl-pet-sticky { border-color: #ffb84d; background: rgba(64,36,14,0.97); color: #ffe9c9; box-shadow: 0 0 22px rgba(255,140,0,0.45); animation: xlBlink 1.6s ease-in-out infinite; } .xl-pet-bubble::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 7px solid transparent; border-top-color: rgba(178,132,255,0.55); } .xl-pet-bubble.xl-pet-sticky::after { border-top-color: rgba(255,150,40,0.7); } @keyframes xlBlink { 0%,100% { opacity: 1; } 50% { opacity: .55; } }'
+    const css = '.xl-pet-layer { position: fixed; z-index: 2147483000; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; } .xl-pet-sprite { position: absolute; left: 0; top: 0; cursor: pointer; user-select: none; -webkit-user-select: none; image-rendering: auto; } .xl-pet-sprite.dragging { cursor: grabbing; } .xl-pet-fade { animation: xlFade .35s ease; } .xl-pet-switch .xl-pet-bubble { animation: xlFade .35s ease; } @keyframes xlFade { from { opacity: .25; transform: scale(.96); } to { opacity: 1; transform: scale(1); } } .xl-pet-badge { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); background: rgba(22,18,44,0.9); color: #e8d9ff; border: 1px solid rgba(168,120,255,0.55); border-radius: 11px; padding: 1px 11px; font-size: 12px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.4); } .xl-pet-badge:hover { background: rgba(60,44,110,0.95); } .xl-pet-panel { position: absolute; left: 0; bottom: 100%; margin-bottom: 12px; width: 260px; background: rgba(22,20,40,0.97); color: #e8e2ff; border: 1px solid rgba(168,120,255,0.5); border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.55); backdrop-filter: blur(8px); } .xl-pet-panel h3 { margin: 0 0 4px; font-size: 15px; color: #dcc6ff; } .xl-pet-panel p { margin: 0 0 10px; font-size: 12px; line-height: 1.55; color: #b9b0d6; } .xl-pet-detail { margin-bottom: 10px; font-size: 12px; color: #c9c0e8; background: rgba(255,255,255,0.04); border: 1px solid rgba(168,120,255,0.25); border-radius: 10px; padding: 8px 10px; } .xl-pet-detail h4 { margin: 0 0 6px; font-size: 13px; color: #dcc6ff; } .xl-pet-detail .k { color: #9a8fc8; } .xl-pet-detail .row { margin-bottom: 3px; line-height: 1.5; word-break: break-all; } .xl-pet-anims { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; } .xl-pet-anim-btn { border: 1px solid rgba(168,120,255,0.45); background: rgba(80,60,150,0.35); color: #e8e2ff; border-radius: 8px; padding: 3px 8px; font-size: 12px; cursor: pointer; } .xl-pet-anim-btn:hover { background: rgba(100,75,180,0.45); } .xl-pet-anim-btn.active { background: rgba(150,100,255,0.55); border-color: #a678ff; color: #fff; } .xl-pet-size { margin-bottom: 10px; font-size: 12px; color: #c9c0e8; } .xl-pet-size span { display: block; margin-bottom: 4px; } .xl-pet-size input { width: 100%; accent-color: #a678ff; } .xl-pet-notify { width: 100%; border: 1px solid rgba(168,120,255,0.4); background: rgba(60,50,110,0.35); color: #c9c0e8; border-radius: 8px; padding: 5px 0; font-size: 12px; cursor: pointer; margin-bottom: 10px; } .xl-pet-notify.on { background: rgba(150,100,255,0.45); border-color: #a678ff; color: #fff; } .xl-pet-hide { width: 100%; border: 1px solid rgba(255,120,140,0.45); background: rgba(120,40,60,0.35); color: #ffd7de; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; margin-bottom: 6px; } .xl-pet-close-web { width: 100%; border: 1px solid rgba(120,170,255,0.45); background: rgba(40,70,140,0.35); color: #d8e6ff; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; margin-bottom: 6px; } .xl-pet-close { width: 100%; border: 1px solid rgba(168,120,255,0.35); background: rgba(60,50,110,0.35); color: #c9c0e8; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; } .xl-pet-chip { position: absolute; background: rgba(22,18,44,0.9); color: #e8d9ff; border: 1px solid rgba(168,120,255,0.55); border-radius: 11px; padding: 2px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.4); max-width: 420px; overflow: hidden; text-overflow: ellipsis; } .xl-pet-bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 34px; max-width: calc(100% + 180px); width: max-content; background: rgba(30,26,54,0.97); color: #f0e9ff; border: 1px solid rgba(178,132,255,0.55); border-radius: 14px; padding: 9px 18px; font-size: 12.5px; line-height: 1.55; text-align: left; white-space: pre-line; word-break: break-word; letter-spacing: 0.4px; box-shadow: 0 6px 24px rgba(0,0,0,0.5); } .xl-pet-bubble.xl-pet-sticky { border-color: #ffb84d; background: rgba(64,36,14,0.97); color: #ffe9c9; box-shadow: 0 0 22px rgba(255,140,0,0.45); animation: xlBlink 1.6s ease-in-out infinite; } .xl-pet-bubble::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 7px solid transparent; border-top-color: rgba(178,132,255,0.55); } .xl-pet-bubble.xl-pet-sticky::after { border-top-color: rgba(255,150,40,0.7); } @keyframes xlBlink { 0%,100% { opacity: 1; } 50% { opacity: .55; } }'
     const register = () => {
       try {
         styles.insert(css)
