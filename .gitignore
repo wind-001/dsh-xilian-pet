@@ -13,11 +13,7 @@ pets/xilian/electron/bounds.json
 pets/xilian/electron/config.json
 
 # 构建产物（由 tools/build_sprite.py 生成）
-pets/xilian/web/sprite.webp
-pets/xilian/web/sprite.b64
-pets/xilian/web/sprite2x.webp
-pets/xilian/web/sprite2x.b64
-pets/xilian/web/icon.png
+pets/xilian/web/
 
 # 用户自己的精灵图（版权归用户所有，不入库）
 assets/spritesheet.webp
