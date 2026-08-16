@@ -4,6 +4,18 @@
   const { spriteDataUrl, cols, rows, cellW, cellH, scale: bootScale, anims } = boot
   const pet = document.getElementById('pet')
   const bubble = document.getElementById('bubble')
+  const headEl = document.getElementById('b-head')
+  const bodyEl = document.getElementById('b-body')
+  const barEl = document.getElementById('b-bar')
+  const barFill = barEl.querySelector('i')
+
+  const MODE_META = {
+    idle: { title: '待命中' },
+    running: { title: '运行中' },
+    waiting: { title: '等待输入' },
+    review: { title: '任务完成' },
+    degraded: { title: '思考中' },
+  }
 
   let scale = bootScale
   let dispW = Math.round(cellW * scale)
@@ -98,13 +110,50 @@
   pet.style.backgroundImage = 'url(' + spriteDataUrl + ')'
   applySize()
 
-  function showBubble(text, sticky) {
+  // 结构化气泡渲染：标题行（彩色圆点+状态名）+ 正文 + 运行进度条
+  const bodyTextOf = (t) => {
+    const lines = []
+    if (t.mode === 'waiting') {
+      lines.push('我需要你的决定！')
+      if (t.message) lines.push('原因：' + t.message)
+      lines.push('请在对话中批准或回复「确认」')
+    } else if (t.mode === 'degraded') {
+      lines.push('思考中...（可能遇到阻力）')
+      lines.push('超过 10 秒没有进度更新')
+    } else if (t.mode === 'review') {
+      lines.push(t.message || '任务完成！快来检查成果吧！')
+    } else if (t.mode === 'running') {
+      const phaseText = t.phase <= 0 ? '正在思考方案...' : t.phase === 1 ? '正在编写代码 / 读取文件...' : '正在自检与格式化...'
+      lines.push(phaseText + '（' + (typeof t.pct === 'number' ? t.pct : '-') + '%）')
+      if (t.toolName) lines.push('🛠 ' + t.toolName + (t.toolArgs ? ' ' + String(t.toolArgs).slice(0, 24) : ''))
+    } else {
+      lines.push('等待指令...')
+    }
+    if (t.todoText) lines.push(t.todoText)
+    return lines.join('\n')
+  }
+  const renderBubble = (t) => {
     if (!bubbleVisible) return
-    bubble.textContent = text
-    bubble.className = sticky ? 'sticky' : ''
+    const meta = MODE_META[t.mode] || MODE_META.idle
+    headEl.className = t.mode || 'idle'
+    headEl.innerHTML = '<span class="b-dot"></span><span class="b-title">' + meta.title + '</span>'
+    bodyEl.textContent = bodyTextOf(t)
+    if (t.mode === 'running' && typeof t.pct === 'number') {
+      barEl.style.display = 'block'
+      barFill.style.width = Math.max(0, Math.min(100, t.pct)) + '%'
+    } else {
+      barEl.style.display = 'none'
+    }
+    bubble.className = t.mode === 'waiting' ? 'sticky' : ''
     updateBubblePointer()
     if (hideTimer) clearTimeout(hideTimer)
-    if (!sticky) hideTimer = setTimeout(() => { if (!bubble.className) { bubble.textContent = ''; updateBubblePointer() } }, 20000)
+    if (t.mode !== 'waiting') hideTimer = setTimeout(() => { if (!bubble.className) clearBubble() }, 20000)
+  }
+  const clearBubble = () => {
+    headEl.innerHTML = ''
+    bodyEl.textContent = ''
+    barEl.style.display = 'none'
+    updateBubblePointer()
   }
 
   setInterval(() => { frame = (frame + 1) % framesOf(row); paint() }, 120)
@@ -118,7 +167,7 @@
       switchRow(taskRowOf(mode, phase))
     } else if (a === 'bubble') {
       bubbleVisible = !bubbleVisible
-      if (!bubbleVisible) { bubble.textContent = ''; bubble.className = ''; updateBubblePointer() }
+      if (!bubbleVisible) clearBubble()
     }
   })
 
@@ -203,10 +252,9 @@
         todoText = t.todoText || ''
         lastUpdate = new Date().toLocaleTimeString()
         switchRow(manualRow !== null ? manualRow : taskRowOf(mode, phase))
-        const text = textOf(t)
-        showBubble(text, t.mode === 'waiting')
+        renderBubble(t)
         if (notifyEnabled && prevMode !== mode && (mode === 'waiting' || mode === 'review' || mode === 'degraded')) {
-          window.api.notify('昔涟', text)
+          window.api.notify('昔涟', textOf(t))
         }
         prevMode = mode
       }
