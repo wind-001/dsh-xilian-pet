@@ -414,7 +414,7 @@ function PetView({ ctx }) {
         React.createElement('i', { style: { width: bubble.bar + '%' } }),
       ),
     ),
-    !panelOpen && React.createElement('div', { className: 'xl-pet-badge', title: '打开面板', onClick: onBadgeClick }, '✦'),
+    !panelOpen && React.createElement('div', { className: 'xl-pet-badge', title: '打开面板', onClick: onBadgeClick }, name + ' ✦'),
     React.createElement('div', {
       className: 'xl-pet-sprite' + (drag ? ' dragging' : '') + (switchOn ? ' xl-pet-fade' : ''),
       style: spriteStyle,
