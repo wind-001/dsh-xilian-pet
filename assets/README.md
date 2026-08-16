@@ -9,6 +9,10 @@
   ```bash
   python pets/xilian/tools/build_sprite.py assets/spritesheet.webp pets/xilian/web
   ```
+- `previews/` — README 预览图（由 `pets/xilian/tools/make_previews.py` 生成，可用任意精灵图重出）：
+  ```bash
+  python pets/xilian/tools/make_previews.py --sheet assets/spritesheet_placeholder.webp --out assets/previews
+  ```
 
 > 注意：仓库**不包含**任何受版权保护的角色图（《崩坏：星穹铁道》等同人图不可再分发）。
-> 使用他人素材前请自行确认许可。
+> 当前 README 预览图含用户自备角色素材，公开发布前请自行确认版权，或改用内置占位宠物重新生成。

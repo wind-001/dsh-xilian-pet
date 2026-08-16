@@ -4,6 +4,19 @@
 
 > 本仓库由实际运行的系统整理而来，已参数化所有硬编码路径；开箱可用（内置占位宠物），也支持替换成你自己的精灵图。
 
+## 预览
+
+| 网页版（浏览器悬浮） | 桌面版（Electron 置顶常驻） |
+| --- | --- |
+| ![网页版](assets/previews/preview-web.jpg) | ![桌面版](assets/previews/preview-desktop.jpg) |
+
+**状态联动**（空闲 / 运行中 / 等待输入 / 可复核 / 遇阻降级）
+
+![状态联动](assets/previews/preview-states.jpg)
+
+> 预览图由 `pets/xilian/tools/make_previews.py` 生成（可使用任意精灵图重新生成）。
+> 注意：仓库当前预览图含用户自备的角色素材，公开发布前请自行确认版权，或改用内置占位宠物重新生成。
+
 ## 功能特性
 
 | 能力 | 说明 |
