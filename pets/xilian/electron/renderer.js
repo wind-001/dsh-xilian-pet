@@ -102,8 +102,9 @@
     if (!bubbleVisible) return
     bubble.textContent = text
     bubble.className = sticky ? 'sticky' : ''
+    updateBubblePointer()
     if (hideTimer) clearTimeout(hideTimer)
-    if (!sticky) hideTimer = setTimeout(() => { if (!bubble.className) bubble.textContent = '' }, 20000)
+    if (!sticky) hideTimer = setTimeout(() => { if (!bubble.className) { bubble.textContent = ''; updateBubblePointer() } }, 20000)
   }
 
   setInterval(() => { frame = (frame + 1) % framesOf(row); paint() }, 120)
@@ -117,7 +118,7 @@
       switchRow(taskRowOf(mode, phase))
     } else if (a === 'bubble') {
       bubbleVisible = !bubbleVisible
-      if (!bubbleVisible) { bubble.textContent = ''; bubble.className = '' }
+      if (!bubbleVisible) { bubble.textContent = ''; bubble.className = ''; updateBubblePointer() }
     }
   })
 
@@ -125,11 +126,24 @@
   let draggingPet = false
   let ignoring = true
 
-  // 悬停检测：光标在身体矩形内才取消点击穿透，透明区域全部穿透给下层
+  // 气泡是否出现滚动条（内容溢出）：溢出才允许交互，否则保持点击穿透
+  const bubbleScrollable = () => {
+    if (!bubbleVisible || !bubble.textContent) return false
+    return bubble.scrollHeight > bubble.clientHeight + 2
+  }
+  const updateBubblePointer = () => {
+    bubble.style.pointerEvents = bubbleScrollable() ? 'auto' : 'none'
+  }
+  const pointIn = (x, y, r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
+
+  // 悬停检测：光标在身体矩形内（或气泡溢出可滚动时在气泡内）才取消点击穿透，透明区域全部穿透给下层
   const syncIgnore = (x, y, force) => {
     if (draggingPet && !force) return
     const r = pet.getBoundingClientRect()
-    const inside = x >= r.left + 4 && x <= r.right - 4 && y >= r.top + 4 && y <= r.bottom - 4
+    let inside = x >= r.left + 4 && x <= r.right - 4 && y >= r.top + 4 && y <= r.bottom - 4
+    if (!inside && bubbleScrollable()) {
+      inside = pointIn(x, y, bubble.getBoundingClientRect())
+    }
     if (inside === !ignoring) return
     ignoring = !inside
     window.api.setIgnore(ignoring)
@@ -149,6 +163,10 @@
   })
   document.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return
+    // 气泡可滚动区域与详情卡片内不启动拖拽，保留滚动/查看行为
+    const inBubbleScroll = bubbleScrollable() && pointIn(e.clientX, e.clientY, bubble.getBoundingClientRect())
+    const inDetailRect = detailEl && detailEl.classList.contains('show') && pointIn(e.clientX, e.clientY, detailEl.getBoundingClientRect())
+    if (inBubbleScroll || inDetailRect) return
     draggingPet = true
     dragState = { sx: e.screenX, sy: e.screenY, moved: 0 }
     window.api.dragStart()
