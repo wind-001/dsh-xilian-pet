@@ -21,8 +21,8 @@ from PIL import Image
 
 DEFAULT_ANIMS = [
     {"name": "待机·呼吸", "frames": 6},
-    {"name": "向左行走", "frames": 8},
-    {"name": "向左奔跑", "frames": 8},
+    {"name": "向右行走", "frames": 8},
+    {"name": "向右奔跑", "frames": 8},
     {"name": "待机·眨眼", "frames": 4},
     {"name": "待机·微动", "frames": 5},
     {"name": "闭眼·平静", "frames": 8},
