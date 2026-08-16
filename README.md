@@ -75,9 +75,31 @@ xilian-desktop-pet/
 └── pets/xilian/web_manifest_template.json ← 清单模板
 ```
 
-## 快速开始（两条路）
+## 快速开始（三条路：推荐直接交给 AI）
 
-### A. 仅网页版（最快，5 分钟）
+### ✅ C. 全自动：整仓交给 AI 助手（最省事，推荐）
+
+1. 把本仓库目录作为工作区打开你的 AI 助手（Claude Code / Codex / DSH 等）。
+2. 复制粘贴下面这一段（或直接说「按本仓库 `AI_DEPLOY.md` 完整部署桌面宠物」）：
+
+```text
+请阅读本仓库的 AI_DEPLOY.md，然后帮我完成「桌面宠物进度提醒系统」的完整部署：
+① 检查环境（node ≥18 / python ≥3.8 / Pillow）；
+② 用 tools/make_placeholder.py 和 tools/build_sprite.py 生成宠物资产；
+③ 编辑 plugin/host.js 顶部 CONFIG：workspaceRoot 填本仓库绝对路径；
+④ 用 cordis_define 注册插件（code.host = plugin/host.js，code.client = plugin/client.js），
+   再 cordis_run 激活并提示我批准；
+⑤ 在 pets/xilian/electron 里 npm install electron 并启动桌面版，
+   把 desktopAppDir 回填到 CONFIG 后更新插件；
+⑥ 按文档验证双端协调（桌面版运行→网页版隐身；刷新→桌面版自动拉起；退出→网页版回归）。
+每一步动手前先简短说明你要做什么；遇到问题先自查 AI_DEPLOY.md 和 docs/troubleshooting.md。
+```
+
+3. **你只需要做三件事**：批准插件激活、允许 Electron 安装（首次约 100MB）、GitHub 凭据弹窗登录（若走 git 推送）。
+
+> 只想部署网页版？把上面提示词改为「跳过第 ⑤ 步（不部署桌面版），其余照做」即可。
+
+### A. 手动 · 仅网页版（最快，5 分钟）
 
 1. 生成资产（内置占位宠物，或放自己的 `spritesheet.webp` 后执行）：
    ```bash
@@ -88,7 +110,7 @@ xilian-desktop-pet/
 3. 让 AI 助手执行（或手动）：用 `cordis_define` 注册插件（`code.host` = `plugin/host.js` 全文，`code.client` = `plugin/client.js` 全文），再 `cordis_run` 激活并批准。
 4. 宠物出现在网页右下角；任务清单（`todo_write`）变化时她自动播报。
 
-### B. 网页 + 桌面双端（推荐，完整体验）
+### B. 手动 · 网页 + 桌面双端（完整体验）
 
 1. 完成 A 的 1–2 步。
 2. 部署桌面应用：
