@@ -1,0 +1,377 @@
+function PetView({ ctx }) {
+  const [sprite, setSprite] = React.useState(null)
+  const [pos, setPos] = React.useState(null)
+  const [anim, setAnim] = React.useState(0)
+  const [frame, setFrame] = React.useState(0)
+  const [hidden, setHidden] = React.useState(false)
+  const [panelOpen, setPanelOpen] = React.useState(false)
+  const [drag, setDrag] = React.useState(null)
+  const [dragInfo, setDragInfo] = React.useState(null)
+  const [err, setErr] = React.useState('')
+  const [scale, setScale] = React.useState(1.15)
+  const [bubble, setBubble] = React.useState(null)
+  const [celebrate, setCelebrate] = React.useState(false)
+  const [notify, setNotify] = React.useState(false)
+  const [task, setTask] = React.useState(null)
+  const [switchOn, setSwitchOn] = React.useState(false)
+  const [desktopMode, setDesktopMode] = React.useState(false)
+  const [webClosed, setWebClosed] = React.useState(false)
+  const lastMove = React.useRef(null)
+  const loadedRes = React.useRef('1x')
+  const panelOpenRef = React.useRef(false)
+  const notifyRef = React.useRef(false)
+  const spriteRef = React.useRef(null)
+  const taskRef = React.useRef(null)
+  const desktopRef = React.useRef(false)
+  const webClosedRef = React.useRef(false)
+
+  const anims = (sprite && sprite.anims && sprite.anims.length) ? sprite.anims : []
+  const res = (sprite && sprite.res === '2x') ? 2 : 1
+  const baseCellW = (sprite ? sprite.cellW / res : 103)
+  const baseCellH = (sprite ? sprite.cellH / res : 124)
+  const mode = (task && task.mode) || 'idle'
+  const taskRow = mode === 'waiting' ? 4 : mode === 'degraded' ? 8 : mode === 'review' ? 6 : mode === 'running' ? ((task && task.phase >= 2) ? 2 : 1) : null
+  const activeRow = dragInfo ? (dragInfo.speed === 'run' ? 2 : 1) : (taskRow !== null ? taskRow : (celebrate ? 6 : anim))
+  const frameCount = anims[activeRow] ? anims[activeRow].frames : 6
+  const rawW = baseCellW * scale
+  const rawH = baseCellH * scale
+  const displayW = Number.isFinite(rawW) ? Math.round(rawW) : 120
+  const displayH = Number.isFinite(rawH) ? Math.round(rawH) : 150
+
+  const clampPos = (p, w, h) => {
+    const vw = (typeof window !== 'undefined' && window.innerWidth) || 1280
+    const vh = (typeof window !== 'undefined' && window.innerHeight) || 800
+    const m = 8
+    const maxX = Math.max(m, vw - w - m)
+    const maxY = Math.max(m, vh - h - m)
+    return { x: Math.min(Math.max(p.x, m), maxX), y: Math.min(Math.max(p.y, m), maxY) }
+  }
+
+  const tryLoad = (attempt) => {
+    host.call('get-sprite', { res: '1x' }).then((spr) => {
+      if (!spr) { if (attempt < 3) ctx.timeout(() => tryLoad(attempt + 1), 700 * (attempt + 1)); return }
+      loadedRes.current = '1x'
+      setSprite(spr)
+    }).catch(() => {
+      if (attempt < 3) ctx.timeout(() => tryLoad(attempt + 1), 700 * (attempt + 1))
+      else setErr('RPC 失败')
+    })
+  }
+
+  React.useEffect(() => {
+    let alive = true
+    tryLoad(0)
+    host.call('load-state').then((s) => {
+      if (!alive || !s) return
+      if (typeof s.x === 'number' && typeof s.y === 'number') setPos({ x: s.x, y: s.y })
+      if (typeof s.anim === 'number' && s.anim >= 0 && s.anim < 9) setAnim(s.anim)
+      if (typeof s.hidden === 'boolean') setHidden(s.hidden)
+      if (typeof s.scale === 'number' && s.scale >= 0.3 && s.scale <= 3) setScale(s.scale)
+      if (typeof s.notify === 'boolean') setNotify(s.notify)
+      if (typeof s.webClosed === 'boolean') setWebClosed(s.webClosed)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  React.useEffect(() => { panelOpenRef.current = panelOpen }, [panelOpen])
+  React.useEffect(() => { notifyRef.current = notify }, [notify])
+  React.useEffect(() => { spriteRef.current = sprite }, [sprite])
+  React.useEffect(() => { desktopRef.current = desktopMode }, [desktopMode])
+  React.useEffect(() => { webClosedRef.current = webClosed }, [webClosed])
+
+  const frameInterval = dragInfo ? 75 : (frameCount >= 8 ? 90 : 140)
+  React.useEffect(() => {
+    setFrame(0)
+    if (!sprite) return
+    return ctx.interval(() => setFrame((f) => (f + 1) % frameCount), frameInterval)
+  }, [sprite, activeRow, frameCount, frameInterval])
+
+  React.useEffect(() => {
+    if (!drag) return
+    const move = (e) => {
+      const nx = e.clientX, ny = e.clientY
+      const prev = lastMove.current
+      let speed = 'walk'
+      let dir = 1
+      if (prev) {
+        const dist = Math.hypot(nx - prev.x, ny - prev.y)
+        if (dist > 14) speed = 'run'
+        if (nx - prev.x < 0) dir = -1
+      }
+      lastMove.current = { x: nx, y: ny, moved: (prev ? prev.moved : 0) + (prev ? Math.hypot(nx - prev.x, ny - prev.y) : 0) }
+      setDragInfo({ dir, speed })
+      setPos(clampPos({ x: nx - drag.dx, y: ny - drag.dy }, displayW, displayH))
+    }
+    const up = () => {
+      setDrag(null)
+      setDragInfo(null)
+      lastMove.current = null
+      setPos((p) => {
+        if (p) host.call('save-state', { x: p.x, y: p.y, anim, hidden, scale }).catch(() => {})
+        return p
+      })
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+  }, [drag, anim, hidden, scale, displayW, displayH])
+
+  const fireNotify = (body) => {
+    try {
+      if (!notifyRef.current) return
+      if (typeof Notification === 'undefined') return
+      if (Notification.permission !== 'granted') return
+      if (typeof document !== 'undefined' && !document.hidden) return
+      const s = spriteRef.current
+      const opts = { body }
+      if (s && s.dataUrl) opts.icon = s.dataUrl
+      new Notification('昔涟', opts)
+    } catch (e) { /* ignore */ }
+  }
+
+  const showBubble = (text, sticky) => {
+    if (!panelOpenRef.current) setBubble({ text, sticky: !!sticky })
+  }
+
+  React.useEffect(() => {
+    if (!sprite) return
+    let tick = 0
+    const check = () => {
+      tick += 1
+      if (tick % 5 === 1) {
+        host.call('desktop-alive').then((r) => {
+          if (!r) return
+          setDesktopMode(!!r.alive)
+          if (typeof r.webClosed === 'boolean') setWebClosed(r.webClosed)
+        }).catch(() => {})
+      }
+      if (desktopRef.current || webClosedRef.current) return
+      host.call('get-task').then((t) => {
+        if (!t || !t.mode) return
+        const prev = taskRef.current
+        const prevMode = prev ? prev.mode : null
+        taskRef.current = t
+        setTask(t)
+        if (prevMode && prevMode !== t.mode) {
+          setSwitchOn(true)
+          ctx.timeout(() => setSwitchOn(false), 400)
+        }
+        if (t.mode === 'waiting') {
+          showBubble('❗ 我需要你的决定！' + (t.message ? '（' + t.message + '）' : ''), true)
+          fireNotify('❗ 昔涟需要你的决定：' + (t.message || '请回复以继续'))
+        } else if (t.mode === 'degraded') {
+          showBubble('🤔 思考中...（可能遇到阻力）')
+          fireNotify('🤔 任务可能遇到阻力，请回来看看')
+        } else if (t.mode === 'review') {
+          showBubble(t.message || '✅ 任务完成！快来检查成果吧！')
+          fireNotify('✅ 任务完成！快来检查成果吧！')
+          setCelebrate(true)
+          ctx.timeout(() => setCelebrate(false), 5000)
+        } else if (t.mode === 'running') {
+          const phaseText = t.phase <= 0 ? '🧠 正在思考方案...' : t.phase === 1 ? '✍️ 正在编写代码 / 读取文件...' : '🔧 正在自检与格式化...'
+          showBubble(phaseText + (t.todoText ? ' ' + t.todoText : ''))
+        } else {
+          if (prevMode !== 'idle') showBubble('💤 等待指令...')
+        }
+        if (prevMode === 'waiting' && t.mode !== 'waiting') setBubble(null)
+      }).catch(() => {})
+    }
+    check()
+    return ctx.interval(check, 1000)
+  }, [sprite])
+
+  React.useEffect(() => {
+    if (!bubble || bubble.sticky) return
+    return ctx.timeout(() => setBubble(null), 20000)
+  }, [bubble])
+
+  const defaultPos = React.useMemo(() => {
+    const vw = (typeof window !== 'undefined' && window.innerWidth) || 1280
+    const vh = (typeof window !== 'undefined' && window.innerHeight) || 800
+    return { x: vw - displayW - 28, y: vh - displayH - 60 }
+  }, [displayW, displayH])
+
+  const shownPos = pos ? clampPos(pos, displayW, displayH) : defaultPos
+  const name = (sprite && sprite.identity && sprite.identity.displayName) || '昔涟'
+  const desc = (sprite && sprite.identity && sprite.identity.description) || ''
+  const loadErr = (sprite && sprite.error) || err
+  const layerStyle = {
+    left: shownPos.x + 'px',
+    top: shownPos.y + 'px',
+    width: displayW + 'px',
+    height: displayH + 'px',
+  }
+
+  const onSpriteMouseDown = (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    lastMove.current = { x: e.clientX, y: e.clientY, moved: 0 }
+    setDrag({ dx: e.clientX - shownPos.x, dy: e.clientY - shownPos.y })
+  }
+
+  const onSpriteClick = (e) => {
+    const lm = lastMove.current
+    if (lm && lm.moved > 6) return
+    if (mode === 'running') {
+      const info = '🛠 正在执行: ' + (task.toolName || '任务') + (task.toolArgs ? ' ' + task.toolArgs : '')
+      showBubble(info)
+    } else if (mode === 'waiting') {
+      showBubble('❗ 需要你的决定：' + (task.message || '请查看对话并回复') + '（在对话中批准或回复「确认」即可继续）', true)
+    } else if (mode === 'review') {
+      showBubble('✅ 任务完成！' + (task.message ? ' ' + task.message : '') + '（查看对话确认成果）')
+    } else if (mode === 'degraded') {
+      showBubble('🤔 长时间无进度更新，可能遇到阻力；如有问题请在对话中打断我')
+    }
+  }
+
+  const retry = () => {
+    setErr('')
+    host.call('retry-sprite', { res: (sprite && sprite.res) || '1x' }).then((r) => { if (r) setSprite(r) }).catch(() => setErr('RPC 失败'))
+  }
+
+  const closePanel = () => {
+    setPanelOpen(false)
+    host.call('get-task').then((t) => { if (t && t.mode) setBubble({ text: taskBubbleText(t) }) }).catch(() => {})
+  }
+
+  const taskBubbleText = (t) => {
+    if (!t) return '🌙 暂时没有进行中的任务'
+    if (t.mode === 'waiting') return '❗ 我需要你的决定！' + (t.message ? '（' + t.message + '）' : '')
+    if (t.mode === 'degraded') return '🤔 思考中...（可能遇到阻力）'
+    if (t.mode === 'review') return t.message || '✅ 任务完成！快来检查成果吧！'
+    if (t.mode === 'running') {
+      const phaseText = t.phase <= 0 ? '🧠 正在思考方案...' : t.phase === 1 ? '✍️ 正在编写代码 / 读取文件...' : '🔧 正在自检与格式化...'
+      return phaseText + (t.todoText ? ' ' + t.todoText : '')
+    }
+    return '💤 等待指令...'
+  }
+
+  const onBadgeClick = (e) => {
+    e.stopPropagation()
+    if (panelOpen) {
+      closePanel()
+    } else {
+      setBubble(null)
+      setPanelOpen(true)
+    }
+  }
+
+  const toggleNotify = () => {
+    const next = !notify
+    if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().then((p) => {
+        setNotify(p === 'granted')
+      }).catch(() => setNotify(false))
+    } else {
+      setNotify(next)
+    }
+  }
+
+  const closeWebPet = () => {
+    host.call('web-close').then(() => {
+      setWebClosed(true)
+      setPanelOpen(false)
+    }).catch(() => {})
+  }
+
+  const spriteTitle = mode === 'idle' ? '点击开始新任务' : mode === 'running' ? '点击查看正在执行的指令' : mode === 'waiting' ? '❗ 需要你的决定' : mode === 'review' ? '✅ 查看成果' : '🤔 查看详情'
+
+  if (desktopMode || webClosed) return null
+
+  if (!sprite || !sprite.dataUrl) {
+    return React.createElement('div', { className: 'xl-pet-layer', style: layerStyle },
+      React.createElement('div', { className: 'xl-pet-chip', title: '点击重试', onClick: retry },
+        name + ' · ' + (loadErr ? ('精灵图加载失败:' + loadErr) : '精灵图加载中…')),
+    )
+  }
+
+  if (hidden) {
+    return React.createElement('div', { className: 'xl-pet-layer', style: layerStyle },
+      React.createElement('div', { className: 'xl-pet-chip', title: '点击召唤昔涟', onClick: () => setHidden(false) }, '✨ ' + name),
+    )
+  }
+
+  const bgSizeW = sprite.cellW * (scale / res) * sprite.cols
+  const bgSizeH = sprite.cellH * (scale / res) * sprite.rows
+  const bgPosX = -(frame * baseCellW * scale)
+  const bgPosY = -(activeRow * baseCellH * scale)
+  const spriteStyle = {
+    width: displayW + 'px',
+    height: displayH + 'px',
+    backgroundImage: 'url(' + sprite.dataUrl + ')',
+    backgroundSize: (Number.isFinite(bgSizeW) ? bgSizeW : displayW * 8) + 'px ' + (Number.isFinite(bgSizeH) ? bgSizeH : displayH * 9) + 'px',
+    backgroundPosition: (Number.isFinite(bgPosX) ? bgPosX : 0) + 'px ' + (Number.isFinite(bgPosY) ? bgPosY : 0) + 'px',
+    backgroundRepeat: 'no-repeat',
+    transform: (dragInfo && dragInfo.dir === -1) ? 'scaleX(-1)' : 'none',
+  }
+
+  return React.createElement('div', { className: 'xl-pet-layer' + (switchOn ? ' xl-pet-switch' : ''), style: layerStyle },
+    panelOpen && React.createElement('div', { className: 'xl-pet-panel' },
+      React.createElement('h3', null, name),
+      React.createElement('p', null, desc),
+      React.createElement('div', { className: 'xl-pet-size' },
+        React.createElement('span', null, '大小 ' + Math.round(scale * 100) + '%'),
+        React.createElement('input', {
+          type: 'range', min: '0.4', max: '2.5', step: '0.05',
+          value: String(scale),
+          onChange: (e) => setScale(parseFloat(e.target.value)),
+        }),
+      ),
+      React.createElement('button', {
+        className: 'xl-pet-notify' + (notify ? ' on' : ''),
+        onClick: toggleNotify,
+      }, '🔔 系统提醒（最小化时通知）' + (notify ? '：开' : '：关')),
+      React.createElement('div', { className: 'xl-pet-anims' },
+        anims.map((a, i) => React.createElement('button', {
+          key: i,
+          className: 'xl-pet-anim-btn' + (i === anim ? ' active' : ''),
+          onClick: () => { setAnim(i); setFrame(0) },
+        }, a.name + ' (' + a.frames + ')')),
+      ),
+      React.createElement('button', { className: 'xl-pet-hide', onClick: () => setHidden(true) }, '暂时休息'),
+      React.createElement('button', { className: 'xl-pet-close-web', onClick: closeWebPet }, '🚪 关闭网页昔涟（改用桌面版）'),
+      React.createElement('button', { className: 'xl-pet-close', onClick: closePanel }, '收起'),
+    ),
+    bubble && React.createElement('div', { className: 'xl-pet-bubble' + (bubble.sticky ? ' xl-pet-sticky' : '') }, bubble.text),
+    React.createElement('div', { className: 'xl-pet-badge', onClick: onBadgeClick }, name + ' ✦'),
+    React.createElement('div', {
+      className: 'xl-pet-sprite' + (drag ? ' dragging' : '') + (switchOn ? ' xl-pet-fade' : ''),
+      style: spriteStyle,
+      onMouseDown: onSpriteMouseDown,
+      onClick: onSpriteClick,
+      title: spriteTitle,
+    }),
+  )
+}
+
+return {
+  inject: ['timer'],
+  apply(ctx) {
+    const css = '.xl-pet-layer { position: fixed; z-index: 2147483000; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; } .xl-pet-sprite { position: absolute; left: 0; top: 0; cursor: pointer; user-select: none; -webkit-user-select: none; image-rendering: auto; } .xl-pet-sprite.dragging { cursor: grabbing; } .xl-pet-fade { animation: xlFade .35s ease; } .xl-pet-switch .xl-pet-bubble { animation: xlFade .35s ease; } @keyframes xlFade { from { opacity: .25; transform: scale(.96); } to { opacity: 1; transform: scale(1); } } .xl-pet-badge { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); background: rgba(22,18,44,0.9); color: #e8d9ff; border: 1px solid rgba(168,120,255,0.55); border-radius: 11px; padding: 1px 11px; font-size: 12px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.4); } .xl-pet-badge:hover { background: rgba(60,44,110,0.95); } .xl-pet-panel { position: absolute; left: 0; bottom: 100%; margin-bottom: 12px; width: 260px; background: rgba(22,20,40,0.97); color: #e8e2ff; border: 1px solid rgba(168,120,255,0.5); border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.55); backdrop-filter: blur(8px); } .xl-pet-panel h3 { margin: 0 0 4px; font-size: 15px; color: #dcc6ff; } .xl-pet-panel p { margin: 0 0 10px; font-size: 12px; line-height: 1.55; color: #b9b0d6; } .xl-pet-anims { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; } .xl-pet-anim-btn { border: 1px solid rgba(168,120,255,0.45); background: rgba(80,60,150,0.35); color: #e8e2ff; border-radius: 8px; padding: 3px 8px; font-size: 12px; cursor: pointer; } .xl-pet-anim-btn:hover { background: rgba(100,75,180,0.45); } .xl-pet-anim-btn.active { background: rgba(150,100,255,0.55); border-color: #a678ff; color: #fff; } .xl-pet-size { margin-bottom: 10px; font-size: 12px; color: #c9c0e8; } .xl-pet-size span { display: block; margin-bottom: 4px; } .xl-pet-size input { width: 100%; accent-color: #a678ff; } .xl-pet-notify { width: 100%; border: 1px solid rgba(168,120,255,0.4); background: rgba(60,50,110,0.35); color: #c9c0e8; border-radius: 8px; padding: 5px 0; font-size: 12px; cursor: pointer; margin-bottom: 10px; } .xl-pet-notify.on { background: rgba(150,100,255,0.45); border-color: #a678ff; color: #fff; } .xl-pet-hide { width: 100%; border: 1px solid rgba(255,120,140,0.45); background: rgba(120,40,60,0.35); color: #ffd7de; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; margin-bottom: 6px; } .xl-pet-close-web { width: 100%; border: 1px solid rgba(120,170,255,0.45); background: rgba(40,70,140,0.35); color: #d8e6ff; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; margin-bottom: 6px; } .xl-pet-close { width: 100%; border: 1px solid rgba(168,120,255,0.35); background: rgba(60,50,110,0.35); color: #c9c0e8; border-radius: 8px; padding: 4px 0; font-size: 12px; cursor: pointer; } .xl-pet-chip { position: absolute; background: rgba(22,18,44,0.9); color: #e8d9ff; border: 1px solid rgba(168,120,255,0.55); border-radius: 11px; padding: 2px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.4); max-width: 420px; overflow: hidden; text-overflow: ellipsis; } .xl-pet-bubble { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 34px; max-width: calc(100% + 140px); width: max-content; background: rgba(30,26,54,0.97); color: #f0e9ff; border: 1px solid rgba(178,132,255,0.55); border-radius: 14px; padding: 9px 18px; font-size: 12.5px; line-height: 1.55; text-align: center; white-space: normal; word-break: break-word; letter-spacing: 0.4px; box-shadow: 0 6px 24px rgba(0,0,0,0.5); } .xl-pet-bubble.xl-pet-sticky { border-color: #ffb84d; background: rgba(64,36,14,0.97); color: #ffe9c9; box-shadow: 0 0 22px rgba(255,140,0,0.45); animation: xlBlink 1.6s ease-in-out infinite; } .xl-pet-bubble::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 7px solid transparent; border-top-color: rgba(178,132,255,0.55); } .xl-pet-bubble.xl-pet-sticky::after { border-top-color: rgba(255,150,40,0.7); } @keyframes xlBlink { 0%,100% { opacity: 1; } 50% { opacity: .55; } }'
+    const register = () => {
+      try {
+        styles.insert(css)
+      } catch (e) {
+        console.error('xilian: styles failed', String(e))
+      }
+      const slots = ctx.get('slots')
+      if (slots === undefined) return false
+      try {
+        slots.inject('shell.overlay', () => slots.register(
+          { name: 'shell.overlay', id: 'xilian-pet' },
+          () => React.createElement(PetView, { ctx }),
+        ))
+        return true
+      } catch (e) {
+        console.error('xilian: slot register failed', String(e))
+        return false
+      }
+    }
+    if (!register()) {
+      const h = ctx.interval(() => { if (register()) h() }, 500)
+    }
+  },
+}

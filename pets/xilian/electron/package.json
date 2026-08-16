@@ -1,0 +1,9 @@
+{
+  "name": "xilian-desktop",
+  "version": "1.0.0",
+  "description": "昔涟桌面宠物（Electron 常驻悬浮窗）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  }
+}

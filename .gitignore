@@ -1,0 +1,29 @@
+# 依赖与构建产物
+node_modules/
+.npm-cache/
+__pycache__/
+*.pyc
+
+# 运行时状态（由插件/桌面应用自动生成）
+pets/xilian/state.json
+pets/xilian/task.json
+pets/xilian/desktop_alive.json
+pets/xilian/debug.log
+pets/xilian/electron/bounds.json
+pets/xilian/electron/config.json
+
+# 构建产物（由 tools/build_sprite.py 生成）
+pets/xilian/web/sprite.webp
+pets/xilian/web/sprite.b64
+pets/xilian/web/sprite2x.webp
+pets/xilian/web/sprite2x.b64
+pets/xilian/web/icon.png
+
+# 用户自己的精灵图（版权归用户所有，不入库）
+assets/spritesheet.webp
+
+# 环境与系统
+.env
+*.log
+Thumbs.db
+.DS_Store
