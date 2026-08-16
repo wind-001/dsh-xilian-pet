@@ -103,7 +103,7 @@
     if (dragState.moved > 2) {
       if (!dragging) { dragging = true }
       switchRow(dragState.moved > 40 ? 2 : 1)
-      pet.style.transform = dx < 0 ? 'scaleX(-1)' : 'none'
+      pet.style.transform = dx > 0 ? 'scaleX(-1)' : 'none'
     }
     window.api.dragMove(dx, dy)
   })

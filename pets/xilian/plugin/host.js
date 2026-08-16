@@ -1,15 +1,3 @@
-// ============================================================
-// 部署配置（开源版）— 把下面三项改成你的环境再使用
-//   workspaceRoot: 仓库根目录的绝对路径（包含 pets/xilian/ 的那一层）
-//   desktopAppDir: Electron 桌面应用目录（看门狗自动拉起用；留空则禁用自动拉起）
-//   desktopExe:    Electron 可执行文件绝对路径（留空则从 desktopAppDir 推导）
-// ============================================================
-const CONFIG = {
-  workspaceRoot: '',
-  desktopAppDir: '',
-  desktopExe: '',
-}
-
 return {
   inject: ['timer'],
   apply(ctx) {
@@ -24,10 +12,9 @@ return {
       const sp = ctx.get('sandboxPolicy')
       if (sp && typeof sp.resolve === 'function') writePolicy = sp.resolve()
     } catch (e) { /* ignore */ }
-    const FALLBACK_ROOT = CONFIG.workspaceRoot ? String(CONFIG.workspaceRoot).replace(/[\\/]+$/, '') : ''
+    const FALLBACK_ROOT = 'C:/Users/刘康鑫/Desktop/Test_cline_deepseekv4'
     const candidates = (rel) => {
-      const list = []
-      if (FALLBACK_ROOT) list.push(FALLBACK_ROOT + '/' + rel)
+      const list = [FALLBACK_ROOT + '/' + rel]
       if (base && base !== FALLBACK_ROOT) list.push(base + '/' + rel)
       list.push(rel)
       return list
@@ -342,15 +329,11 @@ return {
     let lastDesktopSeen = 0
     let exitInfo = null
     let lastSpawnAt = 0
-    const ELECTRON_APP = CONFIG.desktopAppDir || ''
-    const ELECTRON_EXE = CONFIG.desktopExe || (ELECTRON_APP ? ELECTRON_APP + '/node_modules/electron/dist/electron.exe' : '')
+    const ELECTRON_APP = 'D:/Myapp/xilian_electron'
+    const ELECTRON_EXE = 'D:/Myapp/xilian_electron/node_modules/electron/dist/electron.exe'
     const clientBeat = () => { lastClientBeat = Date.now() }
     const spawnDesktop = async () => {
       lastSpawnAt = Date.now()
-      if (!ELECTRON_EXE) {
-        appendLog('[pet] desktop app not configured; set CONFIG in host.js')
-        return
-      }
       try {
         const sub = ctx.get('subprocess')
         if (!sub) { appendLog('[pet] no subprocess service'); return }

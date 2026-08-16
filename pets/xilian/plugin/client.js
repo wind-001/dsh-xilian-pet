@@ -96,7 +96,7 @@ function PetView({ ctx }) {
       if (prev) {
         const dist = Math.hypot(nx - prev.x, ny - prev.y)
         if (dist > 14) speed = 'run'
-        if (nx - prev.x < 0) dir = -1
+        if (nx - prev.x > 0) dir = -1
       }
       lastMove.current = { x: nx, y: ny, moved: (prev ? prev.moved : 0) + (prev ? Math.hypot(nx - prev.x, ny - prev.y) : 0) }
       setDragInfo({ dir, speed })
