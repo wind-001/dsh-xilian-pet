@@ -12,7 +12,7 @@
   const MODE_META = {
     idle: { title: '待命中' },
     running: { title: '运行中' },
-    waiting: { title: '等待输入' },
+    waiting: { title: '需要授权' },
     review: { title: '任务完成' },
     degraded: { title: '思考中' },
   }
@@ -34,6 +34,7 @@
   let todoText = ''
   let pct = null
   let lastUpdate = null
+  let lastWaitingNotify = 0
   let prevMode = null
   let notifyEnabled = false
 
@@ -48,9 +49,9 @@
   const textOf = (t) => {
     const lines = []
     if (t.mode === 'waiting') {
-      lines.push('❗ 我需要你的决定！')
+      lines.push('⚠️ 需要授权：进程已暂停！')
       if (t.message) lines.push('原因：' + t.message)
-      lines.push('请在对话中批准或回复「确认」')
+      lines.push('在对话中批准或回复「确认」继续')
     } else if (t.mode === 'degraded') {
       lines.push('🤔 思考中...（可能遇到阻力）')
       lines.push('超过 10 秒没有进度更新')
@@ -67,7 +68,7 @@
     return lines.join('\n')
   }
 
-  const modeLabel = (m) => m === 'waiting' ? '等待输入' : m === 'degraded' ? '遇阻降级' : m === 'review' ? '可复核' : m === 'running' ? '运行中' : '空闲'
+  const modeLabel = (m) => m === 'waiting' ? '需要授权' : m === 'degraded' ? '遇阻降级' : m === 'review' ? '可复核' : m === 'running' ? '运行中' : '空闲'
   const detailEl = document.getElementById('detail')
   const detailBody = document.getElementById('detail-body')
   let detailTimer = null
@@ -114,9 +115,9 @@
   const bodyTextOf = (t) => {
     const lines = []
     if (t.mode === 'waiting') {
-      lines.push('我需要你的决定！')
+      lines.push('⚠️ 进程已暂停，等待你的批准！')
       if (t.message) lines.push('原因：' + t.message)
-      lines.push('请在对话中批准或回复「确认」')
+      lines.push('在对话中批准或回复「确认」继续')
     } else if (t.mode === 'degraded') {
       lines.push('思考中...（可能遇到阻力）')
       lines.push('超过 10 秒没有进度更新')
@@ -253,8 +254,14 @@
         lastUpdate = new Date().toLocaleTimeString()
         switchRow(manualRow !== null ? manualRow : taskRowOf(mode, phase))
         renderBubble(t)
-        if (notifyEnabled && prevMode !== mode && (mode === 'waiting' || mode === 'review' || mode === 'degraded')) {
-          window.api.notify('昔涟', textOf(t))
+        if (notifyEnabled) {
+          if (prevMode !== mode && (mode === 'waiting' || mode === 'review' || mode === 'degraded')) {
+            window.api.notify('昔涟', textOf(t))
+            if (mode === 'waiting') lastWaitingNotify = Date.now()
+          } else if (mode === 'waiting' && Date.now() - lastWaitingNotify > 60000) {
+            lastWaitingNotify = Date.now()
+            window.api.notify('昔涟', textOf(t))
+          }
         }
         prevMode = mode
       }

@@ -48,7 +48,7 @@
     #b-head { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
     #b-head .b-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
     #b-head.running .b-dot { background: #7cc4ff; box-shadow: 0 0 6px #7cc4ff; }
-    #b-head.waiting .b-dot { background: #ffb84d; box-shadow: 0 0 6px #ffb84d; }
+    #b-head.waiting .b-dot { background: #ffb84d; box-shadow: 0 0 8px #ffb84d; animation: dotPulse 1.2s ease-in-out infinite; }
     #b-head.review .b-dot { background: #6fe3a1; box-shadow: 0 0 6px #6fe3a1; }
     #b-head.degraded .b-dot { background: #ff8fa3; box-shadow: 0 0 6px #ff8fa3; }
     #b-head.idle .b-dot { background: #9aa4ff; box-shadow: 0 0 6px #9aa4ff; }
@@ -99,6 +99,7 @@
     #bubble.sticky #b-head .b-title { color: #ffd9a0; }
     #bubble.sticky::after { border-top-color: rgba(255, 150, 40, 0.7); }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+    @keyframes dotPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(1.45); } }
     #pet {
       background-repeat: no-repeat;
       image-rendering: auto;
