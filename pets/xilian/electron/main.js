@@ -8,7 +8,7 @@ const BOUNDS_FILE = path.join(__dirname, 'bounds.json')
 const HEARTBEAT_FILE = path.join(ASSET_DIR, 'desktop_alive.json')
 const STATE_FILE = path.join(ASSET_DIR, 'state.json')
 const ICON_FILE = path.join(ASSET_DIR, 'web', 'icon.png')
-const BUBBLE_ZONE = 190
+const BUBBLE_ZONE = 250
 
 app.disableHardwareAcceleration()
 
@@ -64,7 +64,7 @@ function createWindow() {
   const payload = bootPayload()
   const petW = Math.round(payload.cellW * payload.scale)
   const petH = Math.round(payload.cellH * payload.scale)
-  const w = Math.max(petW, 340)
+  const w = Math.max(petW, 460)
   const h = petH + BUBBLE_ZONE
   const saved = readJsonSafe(BOUNDS_FILE, null)
   const wa = screen.getPrimaryDisplay().workArea
@@ -143,7 +143,7 @@ ipcMain.handle('notify', (e, args) => {
 ipcMain.handle('resize-pet', (e, args) => {
   const win = BrowserWindow.fromWebContents(e.sender)
   if (!win) return
-  win.setSize(Math.max(40, Math.round(Math.max(args.w || 200, 340))), Math.max(60, Math.round((args.h || 200) + BUBBLE_ZONE)))
+  win.setSize(Math.max(40, Math.round(Math.max(args.w || 200, 460))), Math.max(60, Math.round((args.h || 200) + BUBBLE_ZONE)))
 })
 ipcMain.handle('drag-start', (e) => {
   const win = BrowserWindow.fromWebContents(e.sender)

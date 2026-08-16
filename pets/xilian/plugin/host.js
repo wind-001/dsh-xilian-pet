@@ -207,12 +207,25 @@ return {
           }
           return
         }
+        if (t === 'approval/asked') {
+          const why = data && (data.reason || data.message)
+          bump({ mode: 'waiting', message: String(why || '需要批准操作').slice(0, 80) })
+          clearWatchdog()
+          return
+        }
+        if (t === 'approval/decided') {
+          if (task.mode === 'waiting') {
+            bump({ mode: 'running', message: '' })
+            armWatchdog()
+          }
+          return
+        }
         if (t === 'tool/call') {
           const nm = data && data.name
           let args = ''
           try {
             const a = JSON.parse(data.arguments || '{}')
-            args = String(a.command || a.path || a.query || a.pattern || a.content || '').slice(0, 60)
+            args = String(a.command || a.path || a.query || a.pattern || a.content || '').slice(0, 120)
           } catch (e) { /* ignore */ }
           bump({ mode: 'running', toolName: String(nm || ''), toolArgs: args })
           clearWatchdog(); armWatchdog()
@@ -275,7 +288,7 @@ return {
         const inProg = todoCache.items.find((it) => it && it.status === 'in_progress')
         const pending = todoCache.items.find((it) => it && (it.status === 'pending' || it.status === 'todo' || it.status === 'open' || !it.status))
         const cur = (inProg && inProg.content) || (pending && pending.content) || null
-        todoText = '📋 ' + done + '/' + total + (cur ? ' · ' + String(cur).slice(0, 16) : '')
+        todoText = '📋 ' + done + '/' + total + (cur ? ' · ' + String(cur).slice(0, 40) : '')
       }
       const phase = pct < 30 ? 0 : pct < 70 ? 1 : 2
       return {

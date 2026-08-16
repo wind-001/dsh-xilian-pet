@@ -8,6 +8,7 @@
   const bodyEl = document.getElementById('b-body')
   const barEl = document.getElementById('b-bar')
   const barFill = barEl.querySelector('i')
+  const closeBtn = document.getElementById('bubble-close')
 
   const MODE_META = {
     idle: { title: '待命中' },
@@ -92,7 +93,7 @@
       '<div class="row"><span class="k">' + esc(k) + '：</span>' + esc(v) + '</div>').join('')
     detailEl.classList.add('show')
     if (detailTimer) clearTimeout(detailTimer)
-    detailTimer = setTimeout(() => detailEl.classList.remove('show'), 8000)
+    detailTimer = setTimeout(() => detailEl.classList.remove('show'), 15000)
   }
 
   const paint = () => {
@@ -126,7 +127,7 @@
     } else if (t.mode === 'running') {
       const phaseText = t.phase <= 0 ? '正在思考方案...' : t.phase === 1 ? '正在编写代码 / 读取文件...' : '正在自检与格式化...'
       lines.push(phaseText + '（' + (typeof t.pct === 'number' ? t.pct : '-') + '%）')
-      if (t.toolName) lines.push('🛠 ' + t.toolName + (t.toolArgs ? ' ' + String(t.toolArgs).slice(0, 24) : ''))
+      if (t.toolName) lines.push('🛠 ' + t.toolName + (t.toolArgs ? ' ' + t.toolArgs : ''))
     } else {
       lines.push('等待指令...')
     }
@@ -137,7 +138,8 @@
     if (!bubbleVisible) return
     const meta = MODE_META[t.mode] || MODE_META.idle
     headEl.className = t.mode || 'idle'
-    headEl.innerHTML = '<span class="b-dot"></span><span class="b-title">' + meta.title + '</span>'
+    const titleEl = headEl.querySelector('.b-title')
+    if (titleEl) titleEl.textContent = meta.title
     bodyEl.textContent = bodyTextOf(t)
     if (t.mode === 'running' && typeof t.pct === 'number') {
       barEl.style.display = 'block'
@@ -151,7 +153,8 @@
     if (t.mode !== 'waiting') hideTimer = setTimeout(() => { if (!bubble.className) clearBubble() }, 20000)
   }
   const clearBubble = () => {
-    headEl.innerHTML = ''
+    const titleEl = headEl.querySelector('.b-title')
+    if (titleEl) titleEl.textContent = ''
     bodyEl.textContent = ''
     barEl.style.display = 'none'
     updateBubblePointer()
@@ -168,6 +171,7 @@
       switchRow(taskRowOf(mode, phase))
     } else if (a === 'bubble') {
       bubbleVisible = !bubbleVisible
+      bubble.style.display = bubbleVisible ? '' : 'none'
       if (!bubbleVisible) clearBubble()
     }
   })
@@ -186,13 +190,16 @@
   }
   const pointIn = (x, y, r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
 
-  // 悬停检测：光标在身体矩形内（或气泡溢出可滚动时在气泡内）才取消点击穿透，透明区域全部穿透给下层
+  // 悬停检测：光标在身体矩形内（或气泡溢出可滚动时在气泡内，或右上角关闭按钮上）才取消点击穿透，透明区域全部穿透给下层
   const syncIgnore = (x, y, force) => {
     if (draggingPet && !force) return
     const r = pet.getBoundingClientRect()
     let inside = x >= r.left + 4 && x <= r.right - 4 && y >= r.top + 4 && y <= r.bottom - 4
     if (!inside && bubbleScrollable()) {
       inside = pointIn(x, y, bubble.getBoundingClientRect())
+    }
+    if (!inside) {
+      inside = pointIn(x, y, closeBtn.getBoundingClientRect())
     }
     if (inside === !ignoring) return
     ignoring = !inside
@@ -213,10 +220,11 @@
   })
   document.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return
-    // 气泡可滚动区域与详情卡片内不启动拖拽，保留滚动/查看行为
+    // 气泡可滚动区域、详情卡片与右上角关闭按钮内不启动拖拽，保留滚动/查看/隐藏行为
     const inBubbleScroll = bubbleScrollable() && pointIn(e.clientX, e.clientY, bubble.getBoundingClientRect())
     const inDetailRect = detailEl && detailEl.classList.contains('show') && pointIn(e.clientX, e.clientY, detailEl.getBoundingClientRect())
-    if (inBubbleScroll || inDetailRect) return
+    const inCloseBtn = e.target === closeBtn
+    if (inBubbleScroll || inDetailRect || inCloseBtn) return
     draggingPet = true
     dragState = { sx: e.screenX, sy: e.screenY, moved: 0 }
     window.api.dragStart()
@@ -239,6 +247,12 @@
   })
   document.addEventListener('dblclick', () => window.api.exit())
   document.addEventListener('contextmenu', (e) => { e.preventDefault(); window.api.context() })
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    bubbleVisible = false
+    bubble.style.display = 'none'
+    clearBubble()
+  })
 
   const refresh = async () => {
     try {
