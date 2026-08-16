@@ -4,6 +4,8 @@
 
 > 本仓库由实际运行的系统整理而来，已参数化所有硬编码路径；开箱可用（内置占位宠物），也支持替换成你自己的精灵图。
 
+[![资产流水线 CI](https://github.com/wind-001/dsh-xilian-pet/actions/workflows/build.yml/badge.svg)](https://github.com/wind-001/dsh-xilian-pet/actions/workflows/build.yml)
+
 ## 预览
 
 | 网页版（浏览器悬浮） | 桌面版（Electron 置顶常驻） |
@@ -57,6 +59,8 @@ xilian-desktop-pet/
 ├── README.md                 ← 本文件
 ├── AI_DEPLOY.md              ← ★ 给 AI 助手的部署提示词（推荐阅读）
 ├── LICENSE                   ← MIT
+├── .github/workflows/
+│   └── build.yml             ← CI：自动验证资产生成流水线
 ├── docs/
 │   ├── architecture.md       ← 架构详解 + 状态机图
 │   ├── troubleshooting.md    ← 已知问题与排查
@@ -64,20 +68,22 @@ xilian-desktop-pet/
 ├── preset/
 │   └── persona-section.md    ← Agent 预设公约（可选，让所有会话自动带宠物）
 ├── assets/
-│   └── spritesheet_placeholder.webp  ← 内置占位宠物（无版权）
+│   ├── spritesheet_placeholder.webp  ← 内置占位宠物（无版权）
+│   └── previews/             ← README 预览图（由 make_previews.py 生成）
 ├── pets/xilian/
 │   ├── web/                  ← 构建产物（gitignore；由 tools 生成）
 │   ├── plugin/               ← 网页插件源码（host.js / client.js）
-│   ├── electron/             ← 桌面应用源码（main/preload/renderer）
+│   ├── electron/             ← 桌面应用源码（main/preload/renderer + config.json.example）
 │   └── tools/
 │       ├── build_sprite.py   ← 精灵图 → 网页资产流水线
-│       └── make_placeholder.py ← 生成占位宠物
+│       ├── make_placeholder.py ← 生成占位宠物
+│       └── make_previews.py  ← 生成 README 预览图
 └── pets/xilian/web_manifest_template.json ← 清单模板
 ```
 
 ## 快速开始（三条路：推荐直接交给 AI）
 
-### ✅ C. 全自动：整仓交给 AI 助手（最省事，推荐）
+### ✅ A. 全自动：整仓交给 AI 助手（最省事，推荐）
 
 1. 把本仓库目录作为工作区打开你的 AI 助手（Claude Code / Codex / DSH 等）。
 2. 复制粘贴下面这一段（或直接说「按本仓库 `AI_DEPLOY.md` 完整部署桌面宠物」）：
@@ -85,10 +91,10 @@ xilian-desktop-pet/
 ```text
 请阅读本仓库的 AI_DEPLOY.md，然后帮我完成「桌面宠物进度提醒系统」的完整部署：
 ① 检查环境（node ≥18 / python ≥3.8 / Pillow）；
-② 用 tools/make_placeholder.py 和 tools/build_sprite.py 生成宠物资产；
-③ 编辑 plugin/host.js 顶部 CONFIG：workspaceRoot 填本仓库绝对路径；
-④ 用 cordis_define 注册插件（code.host = plugin/host.js，code.client = plugin/client.js），
-   再 cordis_run 激活并提示我批准；
+② 用 pets/xilian/tools/make_placeholder.py 和 pets/xilian/tools/build_sprite.py 生成宠物资产；
+③ 编辑 pets/xilian/plugin/host.js 顶部 CONFIG：workspaceRoot 填本仓库绝对路径；
+④ 用 cordis_define 注册插件（code.host = pets/xilian/plugin/host.js，
+   code.client = pets/xilian/plugin/client.js），再 cordis_run 激活并提示我批准；
 ⑤ 在 pets/xilian/electron 里 npm install electron 并启动桌面版，
    把 desktopAppDir 回填到 CONFIG 后更新插件；
 ⑥ 按文档验证双端协调（桌面版运行→网页版隐身；刷新→桌面版自动拉起；退出→网页版回归）。
@@ -99,7 +105,7 @@ xilian-desktop-pet/
 
 > 只想部署网页版？把上面提示词改为「跳过第 ⑤ 步（不部署桌面版），其余照做」即可。
 
-### A. 手动 · 仅网页版（最快，5 分钟）
+### B. 手动 · 仅网页版（最快，5 分钟）
 
 1. 生成资产（内置占位宠物，或放自己的 `spritesheet.webp` 后执行）：
    ```bash
@@ -107,12 +113,12 @@ xilian-desktop-pet/
    python pets/xilian/tools/build_sprite.py assets/spritesheet_placeholder.webp pets/xilian/web
    ```
 2. 编辑 `pets/xilian/plugin/host.js` 顶部 `CONFIG`，填 `workspaceRoot`（本仓库绝对路径）。
-3. 让 AI 助手执行（或手动）：用 `cordis_define` 注册插件（`code.host` = `plugin/host.js` 全文，`code.client` = `plugin/client.js` 全文），再 `cordis_run` 激活并批准。
+3. 让 AI 助手执行（或手动）：用 `cordis_define` 注册插件（`code.host` = `pets/xilian/plugin/host.js` 全文，`code.client` = `pets/xilian/plugin/client.js` 全文），再 `cordis_run` 激活并批准。
 4. 宠物出现在网页右下角；任务清单（`todo_write`）变化时她自动播报。
 
-### B. 手动 · 网页 + 桌面双端（完整体验）
+### C. 手动 · 网页 + 桌面双端（完整体验）
 
-1. 完成 A 的 1–2 步。
+1. 完成 B 的 1–2 步。
 2. 部署桌面应用：
    ```bash
    cd pets/xilian/electron

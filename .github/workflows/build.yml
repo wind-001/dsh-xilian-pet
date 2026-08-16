@@ -1,0 +1,42 @@
+name: asset-pipeline
+
+on:
+  push:
+    paths:
+      - 'pets/xilian/tools/**'
+      - 'assets/**'
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - 'pets/xilian/tools/**'
+      - 'assets/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Pillow
+        run: pip install pillow
+
+      - name: Generate placeholder assets
+        run: |
+          python pets/xilian/tools/make_placeholder.py assets/spritesheet_placeholder.webp
+          python pets/xilian/tools/build_sprite.py assets/spritesheet_placeholder.webp pets/xilian/web
+          python pets/xilian/tools/make_previews.py --sheet assets/spritesheet_placeholder.webp --out /tmp/previews
+
+      - name: Verify artifacts
+        run: |
+          test -f pets/xilian/web/sprite.b64
+          test -f pets/xilian/web/sprite2x.b64
+          test -f pets/xilian/web/manifest.json
+          test -f pets/xilian/web/icon.png
+          test -f /tmp/previews/preview-web.jpg
+          test -f /tmp/previews/preview-desktop.jpg
+          test -f /tmp/previews/preview-states.jpg
+          echo "asset pipeline OK"

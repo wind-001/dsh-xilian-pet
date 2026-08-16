@@ -1,0 +1,50 @@
+{
+  "identity": {
+    "id": "pet",
+    "displayName": "桌宠",
+    "description": "我的桌面宠物：会跟随任务进度切换动画与气泡，支持网页/桌面双端。"
+  },
+  "cols": 8,
+  "rows": 9,
+  "anims": [
+    {
+      "name": "待机·呼吸",
+      "frames": 6
+    },
+    {
+      "name": "向右行走",
+      "frames": 8
+    },
+    {
+      "name": "向右奔跑",
+      "frames": 8
+    },
+    {
+      "name": "待机·眨眼",
+      "frames": 4
+    },
+    {
+      "name": "待机·微动",
+      "frames": 5
+    },
+    {
+      "name": "闭眼·平静",
+      "frames": 8
+    },
+    {
+      "name": "翅膀扇动",
+      "frames": 6
+    },
+    {
+      "name": "行走变体",
+      "frames": 6
+    },
+    {
+      "name": "低头·忧伤",
+      "frames": 6
+    }
+  ],
+  "cellW": 132,
+  "cellH": 194,
+  "displayScale": 1.15
+}
